@@ -1,16 +1,41 @@
 package main
 
 import (
+	"database/sql"
+	"fmt"
+	"log"
 	"net/http"
-	"sync/atomic" // ensures safety for concurrency
+	"os"
+	"sync/atomic"
+
+	"github.com/jackellisw/httpNoFramework.git/internal/database"
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
 )
 
 type apiConfig struct {
 	fileServerHits atomic.Int32
+	db             *database.Queries
 }
 
 func main() {
-	apiCfg := &apiConfig{}
+	godotenv.Load()
+	dbURL := os.Getenv("DB_URL")
+	if dbURL == "" {
+		fmt.Println("Cannot connect to db")
+	}
+	db, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		log.Fatalf("Error opening database: %s", err)
+	}
+
+	dbQueries := database.New(db)
+
+	apiCfg := &apiConfig{
+		fileServerHits: atomic.Int32{},
+		db:             dbQueries,
+	}
+
 	mux := http.NewServeMux()
 
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(".")))))

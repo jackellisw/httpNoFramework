@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 )
 
 type ErrorResponse struct {
@@ -15,11 +16,26 @@ type ValidReponse struct {
 }
 
 type Chirps struct {
-	Body string `json:"body"`
+	Body         string `json:"body"`
+	Cleaned_Body string `json:"cleaned_body"`
 }
 
 func (c *Chirps) getLen() int {
 	return len(c.Body)
+}
+
+func (c *Chirps) validProfane() {
+	profanity := []string{"kerfuffle", "sharbert", "fornax"}
+	splitBody := strings.Fields(c.Body)
+	for i := 0; i < len(splitBody); i++ {
+		for j := 0; j < len(profanity); j++ {
+			if strings.EqualFold(splitBody[i], profanity[j]) {
+				splitBody[i] = "****"
+			}
+		}
+	}
+
+	c.Cleaned_Body = strings.Join(splitBody, " ")
 }
 
 func handlerValidate(w http.ResponseWriter, r *http.Request) {
@@ -37,6 +53,9 @@ func handlerValidate(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(jsonError)
 	}
 
+	// clean out profanity
+	chirp.validProfane()
+
 	// Checking data
 
 	if chirp.getLen() > 140 {
@@ -48,10 +67,7 @@ func handlerValidate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// encode reponse with isValid or Error
-	validRes := ValidReponse{
-		Valid: true,
-	}
-
-	json.NewEncoder(w).Encode(validRes)
+	json.NewEncoder(w).Encode(Chirps{
+		Cleaned_Body: chirp.Cleaned_Body,
+	})
 }
